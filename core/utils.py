@@ -2,6 +2,7 @@ import io
 import json
 import logging
 import os
+import re
 import zipfile
 import ssl
 import asyncio
@@ -19,6 +20,35 @@ from auth.google_auth import GoogleAuthenticationError
 from auth.oauth_config import is_oauth21_enabled, is_external_oauth21_provider
 
 logger = logging.getLogger(__name__)
+
+# Regex to extract the resource ID from common Google Workspace URLs.
+# Matches patterns like:
+#   https://docs.google.com/document/d/<ID>/...
+#   https://docs.google.com/spreadsheets/d/<ID>/...
+#   https://docs.google.com/presentation/d/<ID>/...
+#   https://docs.google.com/forms/d/<ID>/...
+#   https://drive.google.com/file/d/<ID>/...
+#   https://drive.google.com/open?id=<ID>
+#   https://script.google.com/d/<ID>/...
+_GOOGLE_URL_ID_RE = re.compile(
+    r"(?:docs|drive|script)\.google\.com/(?:document|spreadsheets|presentation|forms|file|drawings)/d/([a-zA-Z0-9_-]+)"
+    r"|drive\.google\.com/open\?id=([a-zA-Z0-9_-]+)"
+    r"|script\.google\.com/(?:home/projects|macros)/(?:d/)?([a-zA-Z0-9_-]+)"
+)
+
+
+def extract_google_id(value: str) -> str:
+    """Extract a Google resource ID from a full URL, or return the value as-is.
+
+    Handles all common Google Workspace share/edit URLs for Docs, Sheets,
+    Slides, Forms, Drive files, and Apps Script projects.
+    """
+    if not value or "/" not in value:
+        return value
+    m = _GOOGLE_URL_ID_RE.search(value)
+    if m:
+        return next(g for g in m.groups() if g is not None)
+    return value
 
 
 class TransientNetworkError(Exception):
@@ -443,9 +473,20 @@ def handle_http_errors(
         service_type (str): Optional. The Google service type (e.g., 'calendar', 'gmail').
     """
 
+    # Parameter names that may contain a full Google URL instead of a bare ID.
+    _ID_PARAMS = frozenset({
+        "document_id", "spreadsheet_id", "file_id", "folder_id",
+        "parent_folder_id", "presentation_id", "form_id", "script_id",
+    })
+
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
+            # Auto-extract Google resource IDs from full URLs.
+            for key in _ID_PARAMS:
+                if key in kwargs and isinstance(kwargs[key], str):
+                    kwargs[key] = extract_google_id(kwargs[key])
+
             max_retries = 3
             base_delay = 1
 
