@@ -121,11 +121,12 @@ def _write_mcp_json(client_secret_path, user_email):
     if user_email:
         env["USER_GOOGLE_EMAIL"] = user_email
 
-    # Use uvx directly — stable across all directories and uv cache states.
-    # Previous approach detected a Python path and used `python -m uv tool run`,
-    # which could resolve to a fragile uv cache path that breaks when the cache shifts.
+    # Use the absolute path to uvx so Claude Code can find it regardless of
+    # the shell PATH in the spawned process. Falls back to bare "uvx" if not found.
+    uvx_cmd = shutil.which("uvx") or "uvx"
+
     existing["mcpServers"]["google-workspace"] = {
-        "command": "uvx",
+        "command": uvx_cmd,
         "args": ["gwmcp", "--single-user"],
         "env": env,
     }
