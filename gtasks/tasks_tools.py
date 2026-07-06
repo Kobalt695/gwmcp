@@ -582,11 +582,12 @@ def serialize_tasks(structured_tasks: List[StructuredTask], subtask_level: int, 
         if task.status == "completed" or task.completed:
             parts.append("completed")
 
+        sep = ' \u2014 '
         if subtask_level == 0:
-            line = f"{indent}{counter[0]}. {' \u2014 '.join(parts)}"
+            line = f"{indent}{counter[0]}. {sep.join(parts)}"
             counter[0] += 1
         else:
-            line = f"{indent}- {' \u2014 '.join(parts)}"
+            line = f"{indent}- {sep.join(parts)}"
 
         response += line + "\n"
 

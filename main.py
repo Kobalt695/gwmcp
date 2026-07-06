@@ -583,6 +583,18 @@ def main():
         safe_print("")
 
         if args.transport == "streamable-http":
+            # fastmcp doesn't expose session_idle_timeout even though the underlying
+            # MCP SDK session manager supports it - idle StreamableHTTP sessions were
+            # never reaped, only growing until a manual restart (unbounded RSS growth).
+            from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+            _orig_shm_init = StreamableHTTPSessionManager.__init__
+
+            def _shm_init_with_idle_timeout(self, *a, **kw):
+                kw.setdefault("session_idle_timeout", 1800)
+                _orig_shm_init(self, *a, **kw)
+
+            StreamableHTTPSessionManager.__init__ = _shm_init_with_idle_timeout
+
             # Check port availability before starting HTTP server
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

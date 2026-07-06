@@ -178,7 +178,7 @@ def _run_oauth_flow(client_id, client_secret, user_email):
         # Generate the auth URL
         import asyncio
 
-        redirect_uri = f"{base_uri}:{port}/oauth2callback"
+        redirect_uri = os.environ.get("GOOGLE_OAUTH_REDIRECT_URI") or f"{base_uri}:{port}/oauth2callback"
 
         async def _get_auth_url():
             return await start_auth_flow(

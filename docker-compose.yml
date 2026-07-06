@@ -1,0 +1,29 @@
+services:
+  gwmcp:
+    build: .
+    container_name: gwmcp
+    restart: unless-stopped
+    command: >
+      uv run python main.py
+      --transport streamable-http
+      --single-user
+    working_dir: /app
+    environment:
+      - PORT=8888
+      - WORKSPACE_MCP_PORT=8888
+      - GOOGLE_OAUTH_REDIRECT_URI=https://gwmcp.08317.ru/oauth2callback
+    volumes:
+      - .:/app
+      - /home/claude/gwmcp-creds:/root/.google_workspace_mcp/credentials
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gwmcp.rule=Host(`gwmcp.08317.ru`)"
+      - "traefik.http.routers.gwmcp.entrypoints=websecure"
+      - "traefik.http.routers.gwmcp.tls.certresolver=cloudflare"
+      - "traefik.http.services.gwmcp.loadbalancer.server.port=8888"
+
+networks:
+  proxy:
+    external: true
